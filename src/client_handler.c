@@ -24,31 +24,37 @@ int client_handler(int client_sock) {
 
   while ((recv_bytes = recv(client_sock, client_msg, BUFFER_SIZE, 0)) != 0) {
     if (recv_bytes == -1) {
-      printf("\n[DEBUG] recv failed!!");
-      // cleanup heap
+      printf("[DEBUG] recv failed!!\n");
+      clean(&client_msg);
+      clean(&server_msg);
       return -1;
     }
-    // terminate client_msg buffer
+
     client_msg[recv_bytes] = '\0';
 
     // parse http req
     if ((http_req_parser(client_msg, &http_req)) == -1) {
       // error parsing not necessarily a error 500
-      printf("\n[DEBUG] [ERROR] http_req_parser failed");
-      goto cleanup;
+      printf("[DEBUG] [ERROR] http_req_parser failed\n");
+      clean(&client_msg);
+      clean(&server_msg);
+      clean(&http_req.req_line.method);
+      clean(&http_req.req_line.uri);
+      clean(&http_req.req_line.version);
+      clean(&http_req.host);
+      clean(&http_req.user_agent);
+      return -1;
     }
-    // //debug
-    printf("\n[INFO] Logging request info:");
-    printf("\n[INFO] method: %s", http_req.req_line.method);
-    printf("\n[INFO] uri: %s", http_req.req_line.uri);
-    printf("\n[INFO] version: %s", http_req.req_line.version);
-    printf("\n[INFO] host: %s", http_req.host);
-    printf("\n[INFO] user agent: %s", http_req.user_agent);
+    // debug
+    printf("[INFO] Logging request info:\n");
+    printf("[INFO] method: %s\n", http_req.req_line.method);
+    printf("[INFO] uri: %s\n", http_req.req_line.uri);
+    printf("[INFO] version: %s\n", http_req.req_line.version);
+    printf("[INFO] host: %s\n", http_req.host);
+    printf("[INFO] user agent: %s\n", http_req.user_agent);
 
-    // process the req, find out what client wants
     // routes
     route = get_route(&http_req);
-    printf("\n[DEBUG] ROUTE: %d", route);
 
     switch (route) {
     case 0:
@@ -56,26 +62,46 @@ int client_handler(int client_sock) {
 
       file_fd = fopen("./public/index.html", "r");
       if (file_fd == NULL) {
-        printf("\n[DEBUG] fopen failed!");
-        goto cleanup;
+        printf("[DEBUG] fopen failed!\n");
+        clean(&client_msg);
+        clean(&server_msg);
+        clean(&http_req.req_line.method);
+        clean(&http_req.req_line.uri);
+        clean(&http_req.req_line.version);
+        clean(&http_req.host);
+        clean(&http_req.user_agent);
+        return -1;
       }
 
       file_size = get_file_size(file_fd);
       if (file_size == -1) {
-        printf("\n[DEBUG] get_file_size failed!");
-        goto cleanup;
+        printf("[DEBUG] get_file_size failed!\n");
+        fclose(file_fd);
+        clean(&client_msg);
+        clean(&server_msg);
+        clean(&http_req.req_line.method);
+        clean(&http_req.req_line.uri);
+        clean(&http_req.req_line.version);
+        clean(&http_req.host);
+        clean(&http_req.user_agent);
+        return -1;
       }
 
       resource_buff = calloc(file_size + 1, sizeof(char *));
       if (resource_buff == NULL) {
-        printf("\n[DEBUG] calloc failed!");
-        goto cleanup;
+        printf("[DEBUG] calloc failed!\n");
+        fclose(file_fd);
+        clean(&client_msg);
+        clean(&server_msg);
+        clean(&http_req.req_line.method);
+        clean(&http_req.req_line.uri);
+        clean(&http_req.req_line.version);
+        clean(&http_req.host);
+        clean(&http_req.user_agent);
+        return -1;
       }
 
       fread(resource_buff, file_size + 1, sizeof(char), file_fd);
-      // note: check if read is sucessfull
-      // give the res_constructor the content (body) and let it do its magic
-      // to return the full message
 
       http_res.status_line.status = "200";
       http_res.status_line.reason = "OK";
@@ -88,69 +114,70 @@ int client_handler(int client_sock) {
 
       if (server_msg == NULL) {
         // should not happen, error 500
-        goto cleanup;
+        printf("[DEBUG] http_res_constructor failed!\n");
+        fclose(file_fd);
+        clean(&client_msg);
+        clean(&server_msg);
+        clean(&http_req.req_line.method);
+        clean(&http_req.req_line.uri);
+        clean(&http_req.req_line.version);
+        clean(&http_req.host);
+        clean(&http_req.user_agent);
+        return -1;
       }
 
       if (send(client_sock, server_msg, strlen(server_msg), 0) <= 0) {
         // should not happen, error 500
-        goto cleanup;
+        printf("[DEBUG] send failed!\n");
+        fclose(file_fd);
+        clean(&client_msg);
+        clean(&server_msg);
+        clean(&http_req.req_line.method);
+        clean(&http_req.req_line.uri);
+        clean(&http_req.req_line.version);
+        clean(&http_req.host);
+        clean(&http_req.user_agent);
+        return -1;
       }
-
-      // fclose(file_fd);
-      // clean(&resource_buff);
-      // clean(&http_req.req_line.method);
-      // clean(&http_req.req_line.uri);
-      // clean(&http_req.req_line.version);
-      // clean(&http_req.host);
-      // clean(&http_req.user_agent);
-      // clean(&server_msg);
-      // clean(&client_msg);
 
       break;
     case -1:
-      // default route 404
+      // 404 not found
       http_res.status_line.status = "404";
       http_res.status_line.reason = "Not Found";
       http_res.status_line.version = "HTTP/1.1";
 
       server_msg = http_res_constructor(NULL, 0, &http_res);
-      printf("\n[DEBUG] server_msg on route -1: %s", server_msg);
 
       if (server_msg == NULL) {
         // should not happen, error 500
-        goto cleanup;
+        clean(&client_msg);
+        clean(&server_msg);
+        clean(&http_req.req_line.method);
+        clean(&http_req.req_line.uri);
+        clean(&http_req.req_line.version);
+        clean(&http_req.host);
+        clean(&http_req.user_agent);
+        return -1;
       }
 
       if (send(client_sock, server_msg, strlen(server_msg), 0) <= 0) {
         // should not happen, error 500
-        goto cleanup;
+        clean(&client_msg);
+        clean(&server_msg);
+        clean(&http_req.req_line.method);
+        clean(&http_req.req_line.uri);
+        clean(&http_req.req_line.version);
+        clean(&http_req.host);
+        clean(&http_req.user_agent);
+        return -1;
       }
-
-      // clean(&http_req.req_line.method);
-      // clean(&http_req.req_line.uri);
-      // clean(&http_req.req_line.version);
-      // clean(&http_req.host);
-      // clean(&http_req.user_agent);
-      // clean(&server_msg);
-      // clean(&client_msg);
 
       break;
     }
   }
 
   return 0; // sucess
-
-cleanup:
-// edit this!
-  printf("\n[DEBUG] cleanup reached");
-  fclose(file_fd);
-  clean(&http_req.req_line.method);
-  clean(&http_req.req_line.uri);
-  clean(&http_req.req_line.version);
-  clean(&http_req.host);
-  clean(&http_req.user_agent);
-  clean(&client_msg);
-  return -1;
 }
 
 int http_sanity_check(char *msg, int len) {
@@ -158,7 +185,7 @@ int http_sanity_check(char *msg, int len) {
 
   //   for (i = 0; i < len; i++) {
   //     if (isprint(msg[i]) == 0) {
-  //       printf("\n***[DEBUG] not printable!: %c***", msg[i]);
+  //       printf("***[DEBUG] not printable!: %c***\n", msg[i]);
   //       return -1; // not printable!
   //     }
   //   }
@@ -166,9 +193,6 @@ int http_sanity_check(char *msg, int len) {
 }
 
 int http_req_parser(char *msg, HTTP_req_t *http_req) {
-  // takes in pointer to the client msg and a pointer to http struct
-  // walks through lines and populates http struct
-  // printf("\n[DEBUG] CLIENT MSG: %s", msg);
 
   char *line_ptr;
   char *line_save_ptr;
@@ -184,7 +208,6 @@ int http_req_parser(char *msg, HTTP_req_t *http_req) {
   line_ptr = strtok_r(msg, CRLF, &line_save_ptr);
   token = strtok_r(line_ptr, " ", &token_save_ptr);
 
-  // first line
   // parsing method
   if (token != NULL) {
     token_len = strlen(token);
@@ -194,7 +217,6 @@ int http_req_parser(char *msg, HTTP_req_t *http_req) {
     strncpy(http_req->req_line.method, token, token_len + 1);
   }
 
-  // first line
   // parsing uri
   token = strtok_r(NULL, " ", &token_save_ptr);
   if (token != NULL) {
@@ -205,7 +227,6 @@ int http_req_parser(char *msg, HTTP_req_t *http_req) {
     strncpy(http_req->req_line.uri, token, token_len + 1);
   }
 
-  // first line
   // parsing version
   token = strtok_r(NULL, " ", &token_save_ptr);
   if (token != NULL) {
@@ -238,6 +259,7 @@ int http_req_parser(char *msg, HTTP_req_t *http_req) {
           // if the field points to the same place as the req->host
           // previous iteration was the key "Host:"
           // so this one is the value of host
+          // and so on..
           http_req->host = calloc(token_len + 1, sizeof(char));
           if (http_req->host == NULL)
             return -1;
@@ -265,7 +287,7 @@ char *http_res_constructor(char *body, long body_len, HTTP_res_t *http_res) {
 
   http_res_buffer = calloc(body_len + 100, sizeof(char));
   if (http_res_buffer == NULL) {
-    printf("\n[DEBUG] http_res_constructor failed!");
+    printf("[DEBUG] http_res_constructor failed!\n");
     return NULL;
   }
 
@@ -299,16 +321,12 @@ char *http_res_constructor(char *body, long body_len, HTTP_res_t *http_res) {
     strncat(http_res_buffer, CRLF, 3);
     strncat(http_res_buffer, CRLF, 3);
     strncat(http_res_buffer, body, body_len + 1);
-
-    // printf("\n[DEBUG] full msg: %s", http_res_buffer);
   }
 
   return http_res_buffer;
 }
 
 long get_file_size(FILE *fd) {
-  // on success return file size
-  // on error return -1
   long file_size;
 
   if (fseek(fd, 0, SEEK_END) == -1) {
@@ -327,6 +345,9 @@ long get_file_size(FILE *fd) {
 }
 
 void clean(char **buf) {
+  if (*buf == NULL) {
+    return;
+  }
   free(*buf);
   *buf = NULL;
 }

@@ -10,7 +10,6 @@
 
 
 int main() {
-
   int socket_fd, yes = 1;
   struct sockaddr_in sockaddr = {
       AF_INET,
@@ -33,7 +32,7 @@ int main() {
     close(socket_fd);
     fatal("listening on socket failed");
   }
-  printf("Server Listening on port %d", PORT);
+  printf("Server Listening on port %d\n", PORT);
 
   while (1) {
     new_connection_handler(socket_fd);
@@ -56,7 +55,7 @@ int new_connection_handler(int fd) {
   client_handler_status = client_handler(socket_fd_peer);
 
   if (client_handler_status == -1) {
-    printf("\n[ERROR] Handling client failed!");
+    printf("[ERROR] Handling client failed!\n");
   }
 
   close(socket_fd_peer);
@@ -64,11 +63,11 @@ int new_connection_handler(int fd) {
 }
 
 void fatal(char *message) {
-  printf("\n***[FATAL]: %s***", message);
+  printf("***[FATAL]: %s***\n", message);
   exit(1);
 }
 
 void client_connection_logger(struct sockaddr_in *client_addr) {
-  printf("\nNew connection from: %s port %d", inet_ntoa(client_addr->sin_addr),
+  printf("New connection from: %s port %d\n", inet_ntoa(client_addr->sin_addr),
          ntohs(client_addr->sin_port));
 }
