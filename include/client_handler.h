@@ -1,6 +1,8 @@
+#include <stdio.h>
 #define CRLF "\r\n"
 
-int http_sanity_check(char *msg, int len);
+enum methods {GET, POST, PUT, PATCH, DELETE};
+
 
 typedef struct {
   char *method;
@@ -21,16 +23,16 @@ typedef struct {
 } status_line_t;
 
 typedef struct {
+  status_line_t status_line;
   char* content_type;
-  char* content_length;
+  int content_length;
 } HTTP_res_t;
 
-// typedef struct {
-//   char* name;
-//   char* value;
-// } header;
 
-
-int http_req_parser(char *msg, HTTP_req_t *http);
+int http_req_parser(char *msg, HTTP_req_t *http_req);
+char* http_res_constructor(char *body, long body_len, HTTP_res_t *http_res);
 int client_handler(int client_sock);
 void clean(char **buf); 
+int http_sanity_check(char *msg, int len);
+long get_file_size(FILE *fd);
+int get_route(HTTP_req_t *http_req);

@@ -44,6 +44,7 @@ int new_connection_handler(int fd) {
   int socket_fd_peer;
   u_int addr_len = sizeof(struct sockaddr);
   struct sockaddr_in sockaddr_peer;
+  int client_handler_status;
 
   if ((socket_fd_peer =
            accept(fd, (struct sockaddr *)&sockaddr_peer, &addr_len)) == -1) {
@@ -52,10 +53,10 @@ int new_connection_handler(int fd) {
   }
 
   client_connection_logger(&sockaddr_peer);
-  if ((client_handler(socket_fd_peer)) == -1) {
-    close(socket_fd_peer);
-    close(fd);
-    fatal("Server Error 500");
+  client_handler_status = client_handler(socket_fd_peer);
+
+  if (client_handler_status == -1) {
+    printf("\n[ERROR] Handling client failed!");
   }
 
   close(socket_fd_peer);
