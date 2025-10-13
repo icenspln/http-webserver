@@ -1,1 +1,5 @@
-Just a minimal HTTP webserver written in C.
+## Description:
+Just a minimal HTTP server written in C.
+
+## build & run:
+`make && ./server`
